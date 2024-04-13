@@ -6,6 +6,8 @@ based on Multi-touch Kit by Saarland Univercity
 
 Multi-touch Kit 라이브러리 사용
 
+[튜토리얼 가이드](https://github.com/HCI-Lab-Saarland/MultiTouchKitDoc/blob/master/MTK_Tutorial.pdf)
+
 ### Processing Library (Java)
 ---
 [Github](https://github.com/HCI-Lab-Saarland/MultiTouchKitUI)
