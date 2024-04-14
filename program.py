@@ -1,7 +1,9 @@
+import time
 import blobDetector
 import MTKReader
 import cv2
 import tkinter as tk
+from tkinter import filedialog as fd
 import threading
 import numpy as np
 import os
@@ -32,18 +34,20 @@ class Program:
             blob_centers = self.process(signals)
             print(blob_centers)
             cv2.imshow('Blob Image', self.blobDetector.image)
+            cv2.waitKey(1) # 1ms wait  아두이노랑 동기화 필요
 
         # Close serial port
         self.mtkReader.close_serial()
         cv2.destroyAllWindows()
 
-    def start_with_recorded(self):
+    def start_with_recorded(self, filename='sample\\recorded_signals.npy'):
         print("Start with recorded signals")
         self.window = cv2.namedWindow('Blob Image', cv2.WINDOW_NORMAL)
 
         # Load recorded signals
-        if not os.path.isfile('recorded_signals.npy'):
-            recored_signals = np.load('recorded_signals.npy')
+        if not os.path.isfile(filename):
+            print('signal file not found')
+        recored_signals = np.load(filename).astype(np.uint8)
 
         # Process recorded signals
         for signals in recored_signals:
@@ -51,6 +55,9 @@ class Program:
                 break
             blob_centers = self.process(signals)
             cv2.imshow('Blob Image', self.blobDetector.image)
+            cv2.waitKey(1) # 1ms wait
+            
+        cv2.destroyAllWindows()
         print('Done')
 
     def stop(self):
@@ -73,7 +80,8 @@ class SignalThread:
                 elif message == 'start_with_serial':
                     self.program.start_with_serial_connection()        
                 elif message == 'start_with_recorded':
-                    self.program.start_with_recorded()
+                    filename = fd.askopenfilename()
+                    self.program.start_with_recorded(filename)
                 elif message.startswith('record_data'):
                     self.program.mtkReader.isRecording = message.split(':')[1]
                     if self.program.mtkReader.isRecording:

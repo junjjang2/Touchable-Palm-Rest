@@ -10,6 +10,7 @@
 import serial
 import numpy as np
 import queue
+import datetime
 
 __test__ = False
 
@@ -26,7 +27,7 @@ class MultiTouchKitReader:
     def initialize_board(self):
         self.ser.write('initialize\n')
         self.ser.write('%d %d'%(self.array_size, self.array_size) + '\n')
-        self.ser.write('0,1,2,3,4,5,6,7\n')
+        self.ser.write(''.join([i for i in range(self.array_size)], ',')+'\n')
         self.ser.write('true\n')
         self.ser.write('%d' % self.threshold + '\n')
 
@@ -51,7 +52,8 @@ class MultiTouchKitReader:
 
     # Save recorded signals
     def save_recorded_signals(self):
-        np.save('recorded_signals.npy', self.sensor_array)
+        data = np.array(list(self.RecordingBuffer)).astype(np.uint8)
+        np.save('signals\\recorded_signals_%s.npy' % datetime.datetime.now().strftime('%Y-%m-%d%H:%M:%S'), )
     
     # Read multi-touch data from sensor and write it to Serial
     def read_signals(self):
@@ -66,7 +68,10 @@ class MultiTouchKitReader:
         self.frame_num += 1
         if self.isRecording:
             self.RecordingBuffer.put(np.copy(self.sensor_array))
-        return self.sensor_array
+        
+        # test code
+        return np.array([[int(i) for i in range(self.array_size)] for j in range(self.array_size)])
+        # return self.sensor_array
         
     # Write multi-touch data to Screen
     def print_signals(self):
