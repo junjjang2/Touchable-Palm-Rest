@@ -143,11 +143,13 @@ void detectLongPress(int sensor) {
             std::this_thread::sleep_for(std::chrono::milliseconds(300));
             if (sensorsPressed[sensor]) {
                 std::cout << "Long Press detected for sensor " << sensor << std::endl;
-                click_count = 0;
                 // Implement sensor-specific functionality
                 switch (sensor)
                 {
                 case 1:
+                    if (click_count == 2) {
+                        InteractionBehaviour::startDrag();
+                    }
                     isMouseLockActive = false;
                     break;
                 case 2:
@@ -163,13 +165,31 @@ void detectLongPress(int sensor) {
                 }
                 while (sensorsPressed[sensor]) {
                     // 지속적으로 동작을 수행
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
-                isMouseLockActive = true;
-
+                switch (sensor)
+                {
+                case 1:
+                    if (click_count == 2) {
+						InteractionBehaviour::endDrag();
+					}
+                    isMouseLockActive = true;
+                    break;
+                case 2:
+                    InteractionBehaviour::startDrag();
+                    isMouseLockActive = true;
+                    break;
+                case 3:
+                    InteractionBehaviour::startWheel();
+                    isMouseLockActive = true;
+                    break;
+                default:
+                    std::cout << "Invalid Sensor" << sensor << "\n";
+                }
+                click_count = 0;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
@@ -212,9 +232,10 @@ void processInput(int sensor, char action) {
         if (sensorSequence == std::vector<int>{1, 2, 3}) {
             InteractionBehaviour::pageForward();
             sensorSequence.clear();  // 순서 초기화
-        } else if (sensorSequence.size() > 3) {
+        }
+        else if (sensorSequence.size() > 3) {
             sensorSequence.clear();  // 잘못된 순서가 입력되면 초기화
-        t
+        }
     }
 }
 
@@ -229,7 +250,7 @@ std::vector<std::string> splitString(const std::string& str, char delimiter) {
     }
 
     return tokens;
-}   t
+}
 
 // Serial 통신 함수
 void f1() {

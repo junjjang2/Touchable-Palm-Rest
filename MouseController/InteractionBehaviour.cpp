@@ -71,6 +71,18 @@ void InteractionBehaviour::startDrag()
     std::cout << "Start Drag executed" << std::endl;
 }
 
+void InteractionBehaviour::endDrag() 
+{
+    INPUT inputs[2] = {};
+	ZeroMemory(inputs, sizeof(inputs));
+
+	inputs[0].type = INPUT_MOUSE;
+	inputs[0].mi.dwFlags = MOUSEEVENTF_LEFTUP;
+
+	SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
+	std::cout << "End Drag executed" << std::endl;
+}
+
 // 휠 클릭 이동
 void InteractionBehaviour::middleClick() {
     INPUT inputs[1] = {};
@@ -93,6 +105,17 @@ void InteractionBehaviour::startWheel() {
 
     SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
     std::cout << "Start Wheel Drag executed" << std::endl;
+}
+
+void InteractionBehaviour::endWheel() {
+	INPUT inputs[1] = {};
+	ZeroMemory(inputs, sizeof(inputs));
+
+	inputs[0].type = INPUT_MOUSE;
+	inputs[0].mi.dwFlags = MOUSEEVENTF_MIDDLEUP;
+
+	SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
+	std::cout << "End Wheel Drag executed" << std::endl;
 }
 
 // 페이지 앞으로 이동

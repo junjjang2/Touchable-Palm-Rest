@@ -10,8 +10,10 @@ public:
     static void rightClick();
     static void moveToCenter();
     static void startDrag();
+    static void endDrag();
     static void middleClick();
     static void startWheel();
+    static void endWheel();
     static void pageForward();
     static void switchTab();
 };
