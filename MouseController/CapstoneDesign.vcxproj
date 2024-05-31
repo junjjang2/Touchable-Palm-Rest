@@ -128,9 +128,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CapstoneDesign.cpp" />
+    <ClCompile Include="InteractionBehaviour.cpp" />
     <ClCompile Include="Serial.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="InteractionBehaviour.h" />
     <ClInclude Include="SerialClass.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
