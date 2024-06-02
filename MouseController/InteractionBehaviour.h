@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <iostream>
 
+
 class InteractionBehaviour
 {
 public:
@@ -16,4 +17,7 @@ public:
     static void endWheel();
     static void pageForward();
     static void switchTab();
+    static void toggleMouseLock();
+    static void scrollUp();
+    static void scrollDown();
 };

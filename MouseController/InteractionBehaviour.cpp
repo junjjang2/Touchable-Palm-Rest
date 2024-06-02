@@ -151,4 +151,34 @@ void InteractionBehaviour::switchTab() {
     std::cout << "Switch Tab executed" << std::endl;
 }
 
+void InteractionBehaviour::toggleMouseLock()
+{
+    //isMouseLockActive = !isMouseLockActive;
+}
 
+
+// 스크롤 업 함수
+void InteractionBehaviour::scrollUp() {
+    INPUT inputs[1] = {};
+    ZeroMemory(inputs, sizeof(inputs));
+
+    inputs[0].type = INPUT_MOUSE;
+    inputs[0].mi.dwFlags = MOUSEEVENTF_WHEEL;
+    inputs[0].mi.mouseData = WHEEL_DELTA;
+
+    SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
+    std::cout << "Scroll Up executed" << std::endl;
+}
+
+// 스크롤 다운 함수
+void InteractionBehaviour::scrollDown() {
+    INPUT inputs[1] = {};
+    ZeroMemory(inputs, sizeof(inputs));
+
+    inputs[0].type = INPUT_MOUSE;
+    inputs[0].mi.dwFlags = MOUSEEVENTF_WHEEL;
+    inputs[0].mi.mouseData = -WHEEL_DELTA;
+
+    SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
+    std::cout << "Scroll Down executed" << std::endl;
+}

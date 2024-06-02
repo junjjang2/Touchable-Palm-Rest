@@ -1,4 +1,6 @@
-﻿#include <Windows.h>
+﻿#pragma once
+
+#include <Windows.h>
 #include <iostream>
 #include <thread>
 #include <sstream>
@@ -7,9 +9,11 @@
 #include <string>
 #include <chrono>
 #include <map>
+#include <queue>
 
 #include "InteractionBehaviour.h"
 #include "SerialClass.h"
+#include <mutex>
 
 
 HHOOK mouseHook;
@@ -29,6 +33,15 @@ std::vector<std::atomic<bool>> sensorsPressed(4); // 인덱스 0은 사용하지
 
 std::vector<int> sensorSequence;  // 센서 입력 순서 추적
 const double maxInterval = 1.5; // 센서 입력 간의 최대 허용 시간 간격 (초)
+
+std::queue<std::pair<int, char>> sensorQueue; // 센서 입력을 저장하는 큐
+const double maxInterval = 0.5; // 센서 입력 간의 최대 허용 시간 간격 (초)
+const std::vector<std::pair<int, char>> scrollUpSequence = { {1, 't'}, {1, 'r'}, {2, 't'}, {2, 'r'} };
+const std::vector<std::pair<int, char>> scrollDownSequence = { {2, 't'}, {2, 'r'}, {1, 't'}, {1, 'r'} };
+const std::vector<std::pair<int, char>> singleClickSequence = { {1, 't'}, {1, 'r'} };
+
+
+std::mutex queueMutex; // 큐 보호를 위한 뮤텍스
 
 // Keyboard hook procedure
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -100,11 +113,10 @@ void SetMouseHook() {
 }
 
 // 센서 입력 처리 함수
-void handleSensorInput(int sensor, char action, double duration, int clickCount) {
+void handleSensorInput(int sensor, char action, int clickCount) {
     if (sensor == 1) {
         if (action == 't') {
-            //isMouseLockActive = false;
-            if (clickCount == 2 && duration < 0.3) {
+            if (clickCount == 2) {
                 InteractionBehaviour::doubleClick();
             }
         }
@@ -116,7 +128,7 @@ void handleSensorInput(int sensor, char action, double duration, int clickCount)
     }
     else if (sensor == 2) {
         if (action == 't') {
-            if (clickCount == 2 && duration < 0.3) {
+            if (clickCount == 2) {
                 InteractionBehaviour::moveToCenter();
             }
         }
@@ -129,11 +141,12 @@ void handleSensorInput(int sensor, char action, double duration, int clickCount)
     else if (sensor == 3) {
         if (action == 'r') {
             if(clickCount == 1){
-                InteractionBehaviour::middleClick();
+                //InteractionBehaviour::middleClick();
+                InteractionBehaviour::toggleMouseLock();
+                isMouseLockActive = !isMouseLockActive;
             }
         }
-    }
-        
+    }  
 }
 
 // 센서 꾹 누르기를 감지하는 함수
@@ -210,13 +223,13 @@ void processInput(int sensor, char action) {
         sensorsPressed[sensor] = true;
 
         std::cout << diff.count() << " " << click_count<< std::endl;
-        handleSensorInput(sensor, 't', diff.count(), click_count);
+        handleSensorInput(sensor, 't', click_count);
     }
     else if (action == 'r') {
         sensorsPressed[sensor] = false;
         std::cout << diff.count() << " " << click_count << std::endl;
 
-        handleSensorInput(sensor, 'r', diff.count(), click_count);
+        handleSensorInput(sensor, 'r', click_count);
     }
     
     // 1, 2, 3 순서로 센서가 터치되었는지 확인
@@ -252,16 +265,50 @@ std::vector<std::string> splitString(const std::string& str, char delimiter) {
     return tokens;
 }
 
+void evaluateSensorQueue() {
+    std::lock_guard<std::mutex> lock(queueMutex);
+    std::vector<std::pair<int, char>> sequence;
+    while (!sensorQueue.empty()) {
+        sequence.push_back(sensorQueue.front());
+        sensorQueue.pop();
+    }
+
+    if (sequence == scrollUpSequence) {
+        InteractionBehaviour::scrollUp();
+    }
+    else if (sequence == scrollDownSequence) {
+        InteractionBehaviour::scrollDown();
+    }
+    else {
+        // 입력이 특정 시퀀스와 일치하지 않으면 다른 동작 실행
+        for (const auto& [sensor, action] : sequence) {
+            handleSensorInput(sensor, action, click_count);
+        }
+    }
+}
+
+void sensorQueueMonitor() {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(maxInterval * 1000)));
+        auto now = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> diff = now - last_time;
+
+        if (diff.count() > maxInterval) {
+            evaluateSensorQueue();
+        }
+    }
+}
+
 // Serial 통신 함수
 void f1() {
-    Serial* SP = new Serial(R"(\\.\COM3)");
+    Serial* SP = new Serial(R"(\\.\COM5)");
 
     if (SP->IsConnected()) {
         std::cout << "Connected" << std::endl;
     }
     else
     {
-        isMouseLockActive = true;
+        isMouseLockActive = false;
     }
 
     char buffer[256] = "";
@@ -312,6 +359,11 @@ int main() {
     std::thread t1(f1);
     t1.detach();
 
+    // 큐 모니터링 스레드 생성
+    std::thread queueMonitor(sensorQueueMonitor);
+    queueMonitor.detach();
+
+
     // 센서 꾹 누르기 감지 스레드 생성t
     std::vector<std::thread> sensorThreads;
     for (int i = 1; i <= 3; i++) {
@@ -324,6 +376,7 @@ int main() {
     
     MSG msg;
     
+
     // Message loop to keep the hook active
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
