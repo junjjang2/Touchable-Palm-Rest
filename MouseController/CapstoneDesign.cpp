@@ -34,13 +34,13 @@ std::vector<std::atomic<bool>> sensorsPressed(4); // 인덱스 0은 사용하지
 std::vector<int> sensorSequence;  // 센서 입력 순서 추적
 const double maxInterval = 1.5; // 센서 입력 간의 최대 허용 시간 간격 (초)
 
-std::queue<std::pair<int, char>> sensorQueue; // 센서 입력을 저장하는 큐
-const double maxInterval = 0.5; // 센서 입력 간의 최대 허용 시간 간격 (초)
+std::vector<std::pair<int, char>> sensorVector; // 센서 입력을 저장하는 큐
 const std::vector<std::pair<int, char>> scrollUpSequence = { {1, 't'}, {1, 'r'}, {2, 't'}, {2, 'r'} };
 const std::vector<std::pair<int, char>> scrollDownSequence = { {2, 't'}, {2, 'r'}, {1, 't'}, {1, 'r'} };
 const std::vector<std::pair<int, char>> singleClickSequence = { {1, 't'}, {1, 'r'} };
 const std::vector<std::pair<int, char>> doubleClickSequence = { {1, 't'}, {1, 'r'}, {1, 't'}, {1, 'r'}};
 const std::vector<std::pair<int, char>> rightClickSequence = { {2, 't'}, {2, 'r'} };
+
 //const std::vector<std::pair<int, char>> middleClickSequence = { {1, 't'}, {1, 'r'} };
 //const std::vector<std::pair<int, char>> singleClickSequence = { {1, 't'}, {1, 'r'} };
 
@@ -115,43 +115,6 @@ void SetMouseHook() {
     }
 }
 
-//// 센서 입력 처리 함수
-//void handleSensorInput(int sensor, char action, int clickCount) {
-//    if (sensor == 1) {
-//        if (action == 't') {
-//            if (clickCount == 2) {
-//                InteractionBehaviour::doubleClick();
-//            }
-//        }
-//        else if (action == 'r') {
-//            if (clickCount == 1) {
-//                InteractionBehaviour::singleClick();
-//            }
-//        }
-//    }
-//    else if (sensor == 2) {
-//        if (action == 't') {
-//            if (clickCount == 2) {
-//                InteractionBehaviour::moveToCenter();
-//            }
-//        }
-//        else if (action == 'r'){
-//            if (clickCount == 1) {
-//                InteractionBehaviour::rightClick();
-//            }
-//        }
-//    }
-//    else if (sensor == 3) {
-//        if (action == 'r') {
-//            if(clickCount == 1){
-//                //InteractionBehaviour::middleClick();
-//                InteractionBehaviour::toggleMouseLock();
-//                isMouseLockActive = !isMouseLockActive;
-//            }
-//        }
-//    }  
-//}
-
 // 센서 꾹 누르기를 감지하는 함수
 void detectLongPress(int sensor) {
     while (true) {
@@ -208,55 +171,52 @@ void detectLongPress(int sensor) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
-//
-//// 입력 데이터를 처리하는 함수
-//void processInput(int sensor, char action) {
-//    auto now = std::chrono::high_resolution_clock::now();
-//
-//    std::chrono::duration<double> diff = now - last_time;
-//    
-//    if (action == 't') {
-//        if(diff.count() > 0.3)
-//            click_count = 0;
-//        
-//        press_time[sensor] = now;
-//        click_count++;
-//        last_sensor = sensor;
-//        last_time = now;
-//        sensorsPressed[sensor] = true;
-//
-//        std::cout << diff.count() << " " << click_count<< std::endl;
-//        handleSensorInput(sensor, 't', click_count);
-//    }
-//    else if (action == 'r') {
-//        sensorsPressed[sensor] = false;
-//        std::cout << diff.count() << " " << click_count << std::endl;
-//
-//        handleSensorInput(sensor, 'r', click_count);
-//    }
-//    
-//    // 1, 2, 3 순서로 센서가 터치되었는지 확인
-//    if (action == 't' && (sensor == 1 || sensor == 2 || sensor == 3)) {
-//        if (!sensorSequence.empty() && std::chrono::duration<double>(now - press_time[sensorSequence.back()]).count() > maxInterval) {
-//            sensorSequence.clear(); // 간격이 너무 길면 순서 초기화
-//        } else {
-//            if (sensorSequence.empty() || sensorSequence.back() != sensor) {
-//                sensorSequence.push_back(sensor);
-//            }
-//        }
-//        
-//        if (sensorSequence == std::vector<int>{1, 2, 3}) {
-//            InteractionBehaviour::pageForward();
-//            sensorSequence.clear();  // 순서 초기화
-//        }
-//        else if (sensorSequence.size() > 3) {
-//            sensorSequence.clear();  // 잘못된 순서가 입력되면 초기화
-//        }
-//    }
-//}
 
-void handleSensorInputQueue(std::vector<std::pair<int, char>>& inputQueue) {
+// 입력 데이터를 처리하는 함수
+void processInput(int sensor, char action) {
+    auto now = std::chrono::high_resolution_clock::now();
 
+    std::chrono::duration<double> diff = now - last_time;
+
+    
+    if (action == 't') {
+        if(diff.count() > 0.3)
+            click_count = 0;
+        
+        press_time[sensor] = now;
+        click_count++;
+        last_sensor = sensor;
+        last_time = now;
+        sensorsPressed[sensor] = true;
+
+        std::cout << diff.count() << " " << click_count<< std::endl;
+    }
+    else if (action == 'r') {
+        sensorsPressed[sensor] = false;
+        std::cout << diff.count() << " " << click_count << std::endl;
+    }
+    sensorVector.emplace_back(sensor, action);
+}
+
+void handleSensorInputQueue(std::vector<std::pair<int, char>> &inputQueue) {
+    // 큐에 저장된 센서 입력을 처리하는 함수
+
+    if (inputQueue == scrollUpSequence) {
+        // Execute scroll up function
+        InteractionBehaviour::scrollUp();
+    } else if (inputQueue == scrollDownSequence) {
+        // Execute scroll down function
+        InteractionBehaviour::scrollDown();
+    } else if (inputQueue == singleClickSequence) {
+        // Execute single click function
+        InteractionBehaviour::singleClick();
+    } else if (inputQueue == doubleClickSequence) {
+        // Execute double click function
+        InteractionBehaviour::doubleClick();
+    } else if (inputQueue == rightClickSequence) {
+        // Execute right click function
+        InteractionBehaviour::rightClick();
+    }
 }
 
 // 문자열을 ',' 구분자로 분할하는 함수
@@ -275,12 +235,8 @@ std::vector<std::string> splitString(const std::string& str, char delimiter) {
 void evaluateSensorQueue() {
     std::lock_guard<std::mutex> lock(queueMutex);
     std::vector<std::pair<int, char>> sequence;
-    while (!sensorQueue.empty()) {
-        sequence.push_back(sensorQueue.front());
-        sensorQueue.pop();
-    }
-
-    handleSensorInputQueue(sensorQueue);
+    handleSensorInputQueue(sensorVector);
+    sensorVector.clear();
 }
 
 void sensorQueueMonitor() {
@@ -332,7 +288,6 @@ void f1() {
                 line.erase(0, pos + 1);
             }
         }
-
     }
 }
 
