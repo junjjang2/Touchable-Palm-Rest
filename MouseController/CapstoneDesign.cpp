@@ -1,5 +1,4 @@
 ﻿#pragma once
-
 #include <Windows.h>
 #include <iostream>
 #include <thread>
@@ -32,15 +31,19 @@ static std::map<int, std::chrono::time_point<std::chrono::high_resolution_clock>
 std::vector<std::atomic<bool>> sensorsPressed(4); // 인덱스 0은 사용하지 않음
 
 std::vector<int> sensorSequence;  // 센서 입력 순서 추적
-const double maxInterval = 1.5; // 센서 입력 간의 최대 허용 시간 간격 (초)
+const double maxInterval = 0.1; // 센서 입력 간의 최대 허용 시간 간격 (초)
 
 std::vector<std::pair<int, char>> sensorVector; // 센서 입력을 저장하는 큐
 const std::vector<std::pair<int, char>> scrollUpSequence = { {1, 't'}, {1, 'r'}, {2, 't'}, {2, 'r'} };
+const std::vector<std::pair<int, char>> scrollUpSequence2 = { {1, 't'}, {2, 't'}, {1, 'r'}, {2, 'r'} };
 const std::vector<std::pair<int, char>> scrollDownSequence = { {2, 't'}, {2, 'r'}, {1, 't'}, {1, 'r'} };
+const std::vector<std::pair<int, char>> scrollDownSequence2 = { {2, 't'}, {1, 't'}, {2, 'r'}, {1, 'r'} };
+
 const std::vector<std::pair<int, char>> singleClickSequence = { {1, 't'}, {1, 'r'} };
 const std::vector<std::pair<int, char>> doubleClickSequence = { {1, 't'}, {1, 'r'}, {1, 't'}, {1, 'r'}};
 const std::vector<std::pair<int, char>> rightClickSequence = { {2, 't'}, {2, 'r'} };
 
+const std::vector<std::pair<int, char>> toggleMouseLock = { {3, 't'}, {3, 'r'} };
 //const std::vector<std::pair<int, char>> middleClickSequence = { {1, 't'}, {1, 'r'} };
 //const std::vector<std::pair<int, char>> singleClickSequence = { {1, 't'}, {1, 'r'} };
 
@@ -50,21 +53,11 @@ std::mutex queueMutex; // 큐 보호를 위한 뮤텍스
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
         PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
-        if (p->vkCode == 'T') {
+        if (p->vkCode == VK_ESCAPE) {
             if ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
                 // Toggle the state of the mouse hook
                 isMouseLockActive = !isMouseLockActive;
 				std::cout << "Mouse Hook " << (isMouseLockActive ? "Activated" : "Deactivated") << std::endl;
-            }
-        }
-        if (p->vkCode==VK_ESCAPE){
-            if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-                // UnhookWindowsHookEx(mouseHook);  // Clean up the hook
-                // UnhookWindowsHookEx(keyboardHook);  // Clean up the hook
-                //
-                // PostQuitMessage(0);  // Post a quit message to end the application
-                
-                return 1;  // Block further processing of this key press
             }
         }
     }
@@ -155,11 +148,11 @@ void detectLongPress(int sensor) {
                     isMouseLockActive = true;
                     break;
                 case 2:
-                    InteractionBehaviour::startDrag();
+                    InteractionBehaviour::endDrag();
                     isMouseLockActive = true;
                     break;
                 case 3:
-                    InteractionBehaviour::startWheel();
+                    InteractionBehaviour::endWheel();
                     isMouseLockActive = true;
                     break;
                 default:
@@ -201,10 +194,10 @@ void processInput(int sensor, char action) {
 void handleSensorInputQueue(std::vector<std::pair<int, char>> &inputQueue) {
     // 큐에 저장된 센서 입력을 처리하는 함수
 
-    if (inputQueue == scrollUpSequence) {
+    if (inputQueue == scrollUpSequence || inputQueue == scrollUpSequence2) {
         // Execute scroll up function
         InteractionBehaviour::scrollUp();
-    } else if (inputQueue == scrollDownSequence) {
+    } else if (inputQueue == scrollDownSequence || inputQueue == scrollDownSequence2) {
         // Execute scroll down function
         InteractionBehaviour::scrollDown();
     } else if (inputQueue == singleClickSequence) {
@@ -216,7 +209,14 @@ void handleSensorInputQueue(std::vector<std::pair<int, char>> &inputQueue) {
     } else if (inputQueue == rightClickSequence) {
         // Execute right click function
         InteractionBehaviour::rightClick();
-    }
+    } else if (inputQueue == toggleMouseLock) {
+		// Toggle mouse lock
+		isMouseLockActive = !isMouseLockActive;
+		std::cout << "Mouse Lock " << (isMouseLockActive ? "Activated" : "Deactivated") << std::endl;
+	} else {
+		// Invalid input sequence
+		std::cout << "Invalid Input Sequence" << std::endl;
+	}
 }
 
 // 문자열을 ',' 구분자로 분할하는 함수
@@ -234,8 +234,14 @@ std::vector<std::string> splitString(const std::string& str, char delimiter) {
 
 void evaluateSensorQueue() {
     std::lock_guard<std::mutex> lock(queueMutex);
-    std::vector<std::pair<int, char>> sequence;
     handleSensorInputQueue(sensorVector);
+
+    std::cout << "Sensor Queue Evaluated:";
+    for(auto& sensor : sensorVector)
+    {
+		std::cout << sensor.first << ","<< sensor.second << " ";
+	}
+    std::cout << std::endl;
     sensorVector.clear();
 }
 
@@ -245,7 +251,7 @@ void sensorQueueMonitor() {
         auto now = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> diff = now - last_time;
 
-        if (diff.count() > maxInterval) {
+        if (sensorVector.size() > 0 && diff.count() > maxInterval) {
             evaluateSensorQueue();
         }
     }
@@ -253,7 +259,7 @@ void sensorQueueMonitor() {
 
 // Serial 통신 함수
 void f1() {
-    Serial* SP = new Serial(R"(\\.\COM5)");
+    Serial* SP = new Serial(R"(\\.\COM4)");
 
     if (SP->IsConnected()) {
         std::cout << "Connected" << std::endl;
@@ -333,7 +339,7 @@ int main() {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
-    
+
     UnhookWindowsHookEx(mouseHook);  // Clean up the hook
     UnhookWindowsHookEx(keyboardHook);  // Clean up the hook
     return 0;

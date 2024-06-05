@@ -1,5 +1,6 @@
 ﻿#include "InteractionBehaviour.h"
 
+float InteractionBehaviour::wheelSpeed = 15.5f;
 
 // 마우스 좌클릭
 void InteractionBehaviour::singleClick() {
@@ -164,7 +165,7 @@ void InteractionBehaviour::scrollUp() {
 
     inputs[0].type = INPUT_MOUSE;
     inputs[0].mi.dwFlags = MOUSEEVENTF_WHEEL;
-    inputs[0].mi.mouseData = WHEEL_DELTA;
+    inputs[0].mi.mouseData = (int) (WHEEL_DELTA * wheelSpeed);
 
     SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
     std::cout << "Scroll Up executed" << std::endl;
@@ -177,7 +178,7 @@ void InteractionBehaviour::scrollDown() {
 
     inputs[0].type = INPUT_MOUSE;
     inputs[0].mi.dwFlags = MOUSEEVENTF_WHEEL;
-    inputs[0].mi.mouseData = -WHEEL_DELTA;
+    inputs[0].mi.mouseData = -WHEEL_DELTA * wheelSpeed;
 
     SendInput(ARRAYSIZE(inputs), inputs, sizeof(INPUT));
     std::cout << "Scroll Down executed" << std::endl;

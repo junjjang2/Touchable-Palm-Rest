@@ -20,4 +20,6 @@ public:
     static void toggleMouseLock();
     static void scrollUp();
     static void scrollDown();
+
+    static float wheelSpeed;
 };
