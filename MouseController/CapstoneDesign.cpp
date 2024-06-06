@@ -12,6 +12,7 @@
 
 #include "InteractionBehaviour.h"
 #include "SerialClass.h"
+
 #include <mutex>
 
 int COM_PORT = 3; // COM 포트 번호
@@ -50,6 +51,13 @@ const std::vector<std::pair<int, char>> toggleMouseLock = { {3, 't'}, {3, 'r'} }
 
 std::mutex queueMutex; // 큐 보호를 위한 뮤텍스
 
+// 마우스 속도 계산을 위한 변수
+POINT lastMousePos = { 0, 0 };
+std::chrono::time_point<std::chrono::high_resolution_clock> lastMouseTime;
+double mouseSpeed = 0.0; // 픽셀/초 단위의 마우스 속도
+double mouseDragThreshold = 100; // 드래그를 시작하는 마우스 속도 임계값
+bool isMouseDragging = false; // 마우스 드래깅 상태
+
 // Keyboard hook procedure
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
@@ -73,11 +81,32 @@ void SetKeyboardHook() {
     }
 }
 
+void calculateMouseSpeed(POINT currentPos) {
+    auto now = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> timeDiff = now - lastMouseTime;
+
+    if (timeDiff.count() > 0) {
+        double deltaX = static_cast<double>(currentPos.x - lastMousePos.x);
+        double deltaY = static_cast<double>(currentPos.y - lastMousePos.y);
+        double distance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+        mouseSpeed = distance / timeDiff.count();
+    }
+
+    lastMousePos = currentPos;
+    lastMouseTime = now;
+
+    //std::cout << "Mouse Speed: " << mouseSpeed << " pixels/second" << std::endl;
+}
+
+
 // Mouse hook procedure
 LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
     auto now = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double> diff = now - last_time;
+    MSLLHOOKSTRUCT* pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
+    if (pMouseStruct == nullptr)
+        return CallNextHookEx(mouseHook, nCode, wParam, lParam);
 
     if (nCode >= 0) {
         MSLLHOOKSTRUCT *pMouseStruct = (MSLLHOOKSTRUCT *)lParam;
@@ -91,6 +120,10 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 if (isMouseLockActive) {
 					//std::cout << "Mouse Movement Blocked" << std::endl;
                     return 1; // Block mouse movement
+                }
+                // if Mouse is not Locked
+                else {
+                    calculateMouseSpeed(pMouseStruct->pt);
                 }
                 break;
             case WM_LBUTTONDOWN:
@@ -113,48 +146,58 @@ void SetMouseHook() {
 void detectLongPress(int sensor) {
     while (true) {
         if (sensorsPressed[sensor]) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(300));
-            if (sensorsPressed[sensor]) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (sensorsPressed[sensor] && !isMouseLockActive) {
                 std::cout << "Long Press detected for sensor " << sensor << std::endl;
                 // Implement sensor-specific functionality
                 switch (sensor)
                 {
                 case 1:
-                    if (click_count == 2) {
-                        InteractionBehaviour::startDrag();
-                    }
-                    isMouseLockActive = false;
+                    //if (click_count == 2) {
+                        //InteractionBehaviour::startDrag();
+                    //}
+                    //isMouseLockActive = false;
                     break;
                 case 2:
                     InteractionBehaviour::startDrag();
-                    isMouseLockActive = false;
+                    //isMouseLockActive = false;
                     break;
                 case 3:
                     InteractionBehaviour::startWheel();
-                    isMouseLockActive = false;
+                    //isMouseLockActive = false;
                     break;
                 default:
                     std::cout << "Invalid Sensor" << sensor << "\n";
                 }
                 while (sensorsPressed[sensor]) {
                     // 지속적으로 동작을 수행
+                    // 마우스를 누른 채로 이동한 경우
+                    if(sensor==1 && mouseSpeed > mouseDragThreshold && !isMouseDragging){
+                        InteractionBehaviour::startDrag();
+                        isMouseDragging = true;
+                    }
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 switch (sensor)
                 {
                 case 1:
-                    if (click_count == 2) {
-						InteractionBehaviour::endDrag();
-					}
-                    isMouseLockActive = true;
+                    if (isMouseDragging)
+                    {
+                        InteractionBehaviour::endDrag();
+                        isMouseDragging = false;
+                    }
+                    //if (click_count == 2) {
+						//InteractionBehaviour::endDrag();
+					//}
+                    //isMouseLockActive = true;
                     break;
                 case 2:
                     InteractionBehaviour::endDrag();
-                    isMouseLockActive = true;
+                    //isMouseLockActive = true;
                     break;
                 case 3:
                     InteractionBehaviour::endWheel();
-                    isMouseLockActive = true;
+                    //isMouseLockActive = true;
                     break;
                 default:
                     std::cout << "Invalid Sensor" << sensor << "\n";
@@ -203,6 +246,8 @@ void handleSensorInputQueue(std::vector<std::pair<int, char>> &inputQueue) {
         InteractionBehaviour::scrollDown();
     } else if (inputQueue == singleClickSequence) {
         // Execute single click function
+        if (isMouseDragging)
+            return;
         InteractionBehaviour::singleClick();
     } else if (inputQueue == doubleClickSequence) {
         // Execute double click function
@@ -315,7 +360,7 @@ int main() {
     // 윈도우 핸들을 가져옴
     HWND hWnd = GetConsoleWindow();
     // 프로그램을 최상위로 유지
-    setAlwaysOnTop(hWnd);
+    //setAlwaysOnTop(hWnd);
 
     SetMouseHook();
     SetKeyboardHook();
