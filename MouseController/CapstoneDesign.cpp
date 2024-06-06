@@ -14,6 +14,7 @@
 #include "SerialClass.h"
 #include <mutex>
 
+int COM_PORT = 3; // COM 포트 번호
 
 HHOOK mouseHook;
 HHOOK keyboardHook;
@@ -259,7 +260,10 @@ void sensorQueueMonitor() {
 
 // Serial 통신 함수
 void f1() {
-    Serial* SP = new Serial(R"(\\.\COM4)");
+    std::string port = R"(\\.\COM)" + std::to_string(COM_PORT);
+    const char* portName = port.c_str();
+
+    Serial* SP = new Serial(portName);
 
     if (SP->IsConnected()) {
         std::cout << "Connected" << std::endl;
@@ -303,7 +307,10 @@ void setAlwaysOnTop(HWND hWnd) {
 }
 
 int main() {
-     std::cout << "T를 눌러 마우스를 활성화/비활성화 합니다" << std::endl;
+    std::cout << "COM PORT 숫자를 입력하세요 : ";
+    std::cin >> COM_PORT;
+
+    std::cout << "ESC를 눌러 마우스를 활성화/비활성화 합니다" << std::endl;
 
     // 윈도우 핸들을 가져옴
     HWND hWnd = GetConsoleWindow();
